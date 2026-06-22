@@ -1,0 +1,5 @@
+# Place trained model .pth files here after running the Colab notebook.
+# Expected files:
+#   resnet50_pneumo.pth
+#   efficientnetb0_pneumo.pth
+#   vgg16_pneumo.pth

@@ -1,0 +1,6 @@
+# Place metrics JSON and PNG files here after running the Colab notebook.
+# Expected files:
+#   all_metrics.json
+#   resnet50_metrics.json, resnet50_confusion_matrix.png, resnet50_roc_curves.png, resnet50_loss_curves.png
+#   efficientnetb0_metrics.json, efficientnetb0_confusion_matrix.png, efficientnetb0_roc_curves.png, efficientnetb0_loss_curves.png
+#   vgg16_metrics.json, vgg16_confusion_matrix.png, vgg16_roc_curves.png, vgg16_loss_curves.png
