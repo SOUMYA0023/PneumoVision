@@ -4,8 +4,10 @@ Supports: resnet50, efficientnetb0, vgg16
 Returns model in eval mode on CPU (for Streamlit deployment compatibility).
 """
 
+import os
 import torch
 import torch.nn as nn
+import numpy as np
 from torchvision import models, transforms
 from pathlib import Path
 import streamlit as st
@@ -15,6 +17,33 @@ DEVICE = torch.device("cpu")  # CPU for Streamlit Cloud compatibility
 
 CLASS_NAMES = ["BACTERIAL", "NORMAL", "VIRAL"]
 NUM_CLASSES = 3
+
+
+def set_deterministic_mode():
+    """
+    Set all random seeds and enable deterministic algorithms for reproducible inference.
+    Call this once at app startup, before any model loading or inference.
+    """
+    torch.manual_seed(42)
+    np.random.seed(42)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        # Some CPU ops may not have deterministic implementations;
+        # fall back gracefully but seeds are still set.
+        pass
+
+
+def _force_eval_all_dropout(model: nn.Module):
+    """
+    Recursively iterate through every submodule and explicitly set
+    every Dropout instance to eval mode. This is stronger than
+    model.eval() alone, which only sets the top-level module flag.
+    """
+    for module in model.modules():
+        if isinstance(module, nn.Dropout):
+            module.eval()
 
 
 def build_resnet50(num_classes: int) -> nn.Module:
@@ -73,6 +102,20 @@ def load_model(model_name: str) -> nn.Module:
     checkpoint = torch.load(weight_path, map_location=DEVICE, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
+    return model
+
+
+def get_clean_model(model_name: str) -> nn.Module:
+    """
+    Get the cached model and defensively reset it to a clean deterministic eval state.
+
+    Always call this instead of load_model() directly from pages and utilities.
+    Even if the cached model was mutated by MC Dropout or other code, this function
+    guarantees the returned model has all layers (including nested Dropout) in eval mode.
+    """
+    model = load_model(model_name)
+    model.eval()
+    _force_eval_all_dropout(model)
     return model
 
 

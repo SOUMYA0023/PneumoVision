@@ -10,6 +10,17 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 import torch.nn as nn
+import streamlit as st
+
+
+def _force_eval_all_dropout(model: nn.Module):
+    """
+    Recursively iterate through every submodule and explicitly set
+    every Dropout instance to eval mode.
+    """
+    for module in model.modules():
+        if isinstance(module, nn.Dropout):
+            module.eval()
 
 
 def get_target_layer(model: nn.Module, model_name: str):
@@ -34,13 +45,36 @@ def compute_gradcam(
     """
     Compute Grad-CAM heatmap for the target class.
 
+    RULE C: This function independently verifies the predicted class via its own
+    forward pass rather than blindly trusting target_class from the caller.
+
     Returns:
         overlay_pil: PIL Image of X-ray with heatmap overlay
         raw_cam: numpy array of raw CAM (H x W), values 0.0 to 1.0
     """
-    target_layers = get_target_layer(model, model_name)
-    targets = [ClassifierOutputTarget(target_class)]
+    # RULE A: Defensive eval reset — do not assume caller left model in clean state
+    if model.training:
+        st.warning("Model state was unexpectedly in training mode — reset automatically.")
+    model.eval()
+    _force_eval_all_dropout(model)
 
+    # RULE C: Independently compute predicted class from a clean forward pass.
+    # RULE D: Gradients not needed for this verification forward pass.
+    with torch.no_grad():
+        verification_output = model(input_tensor.unsqueeze(0))
+        # SOFTMAX APPLIED HERE — DO NOT APPLY AGAIN DOWNSTREAM
+        verification_probs = torch.softmax(verification_output, dim=1)
+        verified_class = int(torch.argmax(verification_probs, dim=1).item())
+
+    # Use the independently verified class for the heatmap target.
+    # This removes the dependency on call order between mc_dropout_inference()
+    # and compute_gradcam().
+    actual_target = verified_class
+
+    target_layers = get_target_layer(model, model_name)
+    targets = [ClassifierOutputTarget(actual_target)]
+
+    # GradCAM needs gradients enabled (RULE D: gradients intentionally enabled here)
     with GradCAM(model=model, target_layers=target_layers) as cam:
         grayscale_cam = cam(input_tensor=input_tensor.unsqueeze(0), targets=targets)
         grayscale_cam = grayscale_cam[0, :]  # (H, W)

@@ -75,8 +75,10 @@ def render():
             })
 
     if table_data:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         df = pd.DataFrame(table_data)
         st.dataframe(df, use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # ---- AUC Scores ----
     st.markdown("### 📈 AUC Scores (One-vs-Rest)")
@@ -90,8 +92,10 @@ def render():
             auc_data.append(row)
 
     if auc_data:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         auc_df = pd.DataFrame(auc_data)
         st.dataframe(auc_df, use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # ---- Visualizations Per Model ----
     st.markdown("### 📉 Detailed Model Analysis")
@@ -111,36 +115,44 @@ def render():
             mc3.metric("Recall", f"{m.get('recall_macro', 0) * 100:.1f}%")
             mc4.metric("F1 Score", f"{m.get('f1_macro', 0) * 100:.1f}%")
 
-            # Confusion Matrix
-            cm_path = METRICS_DIR / f"{model_name}_confusion_matrix.png"
-            if cm_path.exists():
-                st.markdown("##### Confusion Matrix")
-                cm_img = Image.open(cm_path)
-                st.image(cm_img, caption=f"{DISPLAY_NAMES[model_name]} — Confusion Matrix",
-                         use_container_width=True)
+            st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
 
-            # ROC Curves
-            roc_path = METRICS_DIR / f"{model_name}_roc_curves.png"
-            if roc_path.exists():
-                st.markdown("##### ROC Curves (One-vs-Rest)")
-                roc_img = Image.open(roc_path)
-                st.image(roc_img, caption=f"{DISPLAY_NAMES[model_name]} — ROC Curves",
-                         use_container_width=True)
+            # Confusion Matrix and ROC Curves side-by-side
+            c1, c2 = st.columns(2)
+            with c1:
+                cm_path = METRICS_DIR / f"{model_name}_confusion_matrix.png"
+                if cm_path.exists():
+                    st.markdown("##### Confusion Matrix")
+                    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+                    cm_img = Image.open(cm_path)
+                    st.image(cm_img, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+            with c2:
+                roc_path = METRICS_DIR / f"{model_name}_roc_curves.png"
+                if roc_path.exists():
+                    st.markdown("##### ROC Curves (One-vs-Rest)")
+                    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+                    roc_img = Image.open(roc_path)
+                    st.image(roc_img, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-            # Training Loss Curves
+            # Training Loss Curves full width
             loss_path = METRICS_DIR / f"{model_name}_loss_curves.png"
             if loss_path.exists():
                 st.markdown("##### Training / Validation Curves")
+                st.markdown('<div class="premium-card">', unsafe_allow_html=True)
                 loss_img = Image.open(loss_path)
-                st.image(loss_img, caption=f"{DISPLAY_NAMES[model_name]} — Loss & Accuracy",
-                         use_container_width=True)
+                st.image(loss_img, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
             # AUC details
             if "auc_scores" in m:
                 st.markdown("##### Per-Class AUC")
+                st.markdown('<div class="premium-card">', unsafe_allow_html=True)
                 auc_cols = st.columns(len(m["auc_scores"]))
                 for i, (cls, score) in enumerate(m["auc_scores"].items()):
                     auc_cols[i].metric(cls, f"{score:.4f}")
+                st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _render_placeholder_benchmarks():
